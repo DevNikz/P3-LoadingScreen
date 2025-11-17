@@ -1,0 +1,2 @@
+Media/Textures/Desert.png
+Media/Streaming/tile000.png
