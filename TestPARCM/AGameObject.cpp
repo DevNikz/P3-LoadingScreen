@@ -22,7 +22,6 @@ void AGameObject::draw(sf::RenderWindow* targetWindow) {
 	}
 }
 
-//must be called after being registered to the game object manager or one of the parent game objects
 void AGameObject::setPosition(float x, float y)
 {
 	this->posX = x;
