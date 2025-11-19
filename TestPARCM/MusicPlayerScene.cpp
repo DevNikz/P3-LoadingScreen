@@ -64,7 +64,7 @@ void MusicPlayerScene::start() {
 	albumText.setPosition(center.x, center.y + albumRadius + extraTextPadding);
 
 	//Music
-	const std::string albumMusicPath = "Media/Music/Christmas.wav";
+	const std::string albumMusicPath = "Media/Music/Christmas.ogg";
 	if (!albumMusic.openFromFile(albumMusicPath)) {
 		std::cerr << "MusicPlayerScene: failed to load album music: " << albumMusicPath << '\n';
 	}
