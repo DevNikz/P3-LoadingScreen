@@ -27,6 +27,29 @@ LoadingScene::LoadingScene(sf::RenderWindow* window) : window(window) {
     loadingText.setFillColor(sf::Color::White);
     loadingText.setString("Loading");
 
+    // Prepare background layers (three images). Each layer will have two sprites used to tile horizontally.
+    bgLayers.clear();
+    bgLayers.resize(3);
+    const std::string bgPaths[3] = {
+        "Media/Background/1.png",
+        "Media/Background/2.png",
+        "Media/Background/3.png"
+    };
+    // Far to near multipliers: far moves slowest, near moves fastest.
+    const float multipliers[3] = { 0.35f, 0.65f, 1.0f };
+
+    for (int i = 0; i < 3; ++i) {
+        if (!bgLayers[i].texture.loadFromFile(bgPaths[i])) {
+            std::cerr << "LoadingScene: failed to load background: " << bgPaths[i] << '\n';
+            // texture remains empty; the sprites will not draw anything.
+        }
+        else {
+            bgLayers[i].sprites[0].setTexture(bgLayers[i].texture);
+            bgLayers[i].sprites[1].setTexture(bgLayers[i].texture);
+            bgLayers[i].speedMultiplier = multipliers[i];
+        }
+    }
+
     ellipsisClock.restart();
     frameClock.restart();
     ellipsisCount = 0;
@@ -57,6 +80,20 @@ void LoadingScene::start() {
         sf::FloatRect b = vinylSprite.getLocalBounds();
         vinylSprite.setScale(vinylScale, vinylScale);
         vinylRadius = (std::max(b.width, b.height) * vinylScale) / 2.0f;
+    }
+
+    // Initialize background sprites positions & scaling to fit vertically.
+    for (auto& layer : bgLayers) {
+        if (layer.texture.getSize().y == 0) continue;
+        // scale to fit window height
+        float scaleY = static_cast<float>(ws.y) / static_cast<float>(layer.texture.getSize().y);
+        layer.textureHeight = static_cast<float>(layer.texture.getSize().y) * scaleY;
+        layer.textureWidth = static_cast<float>(layer.texture.getSize().x) * scaleY;
+        for (int s = 0; s < 2; ++s) {
+            layer.sprites[s].setScale(scaleY, scaleY);
+            // origin top-left
+            layer.sprites[s].setPosition(static_cast<float>(s) * layer.textureWidth, 0.0f);
+        }
     }
 
     const float extraTextPadding = 60.0f;
@@ -126,7 +163,7 @@ void LoadingScene::handleEvent(const sf::Event& event) {
 
             float dt = dragClock.getElapsedTime().asSeconds();
             if (dt <= 0.0001f) dt = 1.0f / 60.0f;
-            angularVelocity = delta / dt; 
+            angularVelocity = delta / dt;
 
             const float maxVel = 8000.0f;
             if (angularVelocity > maxVel) angularVelocity = maxVel;
@@ -175,14 +212,77 @@ void LoadingScene::draw() {
     sf::Vector2f center(static_cast<float>(ws.x) / 2.0f, static_cast<float>(ws.y) / 2.0f);
     vinylSprite.setPosition(center);
 
+    // Recompute vertical centering for backgrounds if window size changed
+    for (auto& layer : bgLayers) {
+        if (layer.texture.getSize().y == 0) continue;
+        float wantedScaleY = static_cast<float>(ws.y) / static_cast<float>(layer.texture.getSize().y);
+        float computedHeight = static_cast<float>(layer.texture.getSize().y) * wantedScaleY;
+        float computedWidth = static_cast<float>(layer.texture.getSize().x) * wantedScaleY;
+        // if height/width changed due to window resize, update scale and positions
+        if (std::abs(computedWidth - layer.textureWidth) > 0.5f || std::abs(computedHeight - layer.textureHeight) > 0.5f) {
+            layer.textureHeight = computedHeight;
+            layer.textureWidth = computedWidth;
+            for (int s = 0; s < 2; ++s) {
+                layer.sprites[s].setScale(wantedScaleY, wantedScaleY);
+                // reposition sprites side-by-side (keep current X for smoothness)
+                if (s == 0) {
+                    // keep current x if already set, otherwise 0
+                    if (layer.sprites[s].getPosition().x == 0.0f)
+                        layer.sprites[s].setPosition(0.0f, 0.0f);
+                }
+                else {
+                    layer.sprites[s].setPosition(layer.textureWidth, 0.0f);
+                }
+            }
+        }
+    }
+
     const float extraTextPadding = 60.0f;
     loadingText.setPosition(center.x, center.y + vinylRadius + extraTextPadding);
 
+    // Compute global background pixel speed from vinyl rotation speed.
+    // Positive (basePassiveSpin + angularVelocity) -> move left; negative -> move right.
+    float globalPixelSpeed = (basePassiveSpin + angularVelocity) * bgSpeedFactor;
+
+    // Update & draw background layers first (behind overlay and vinyl).
+    for (auto& layer : bgLayers) {
+        if (layer.texture.getSize().y == 0 || layer.textureWidth <= 0.0f) continue;
+
+        // movement for this layer
+        float move = globalPixelSpeed * layer.speedMultiplier * dt;
+
+        // move both sprites horizontally
+        for (int s = 0; s < 2; ++s) {
+            layer.sprites[s].move(-move, 0.0f); // negative because positive globalPixelSpeed should move visuals left
+        }
+
+        // Tiling/wrapping logic using two sprites:
+        // Keep each sprite within the range (-textureWidth, textureWidth)
+        for (int s = 0; s < 2; ++s) {
+            float x = layer.sprites[s].getPosition().x;
+            // If sprite moved completely left out of view by one full texture, wrap it to the right.
+            if (x <= -layer.textureWidth) {
+                x += layer.textureWidth * 2.0f;
+            }
+            // If sprite moved too far right (e.g. when reversing), wrap it to the left.
+            else if (x >= layer.textureWidth) {
+                x -= layer.textureWidth * 2.0f;
+            }
+            layer.sprites[s].setPosition(x, layer.sprites[s].getPosition().y);
+        }
+
+        // Draw the two sprites for this layer
+        window->draw(layer.sprites[0]);
+        window->draw(layer.sprites[1]);
+    }
+
+    // Draw semi-transparent overlay on top of backgrounds
     sf::RectangleShape overlay;
     overlay.setSize(sf::Vector2f(static_cast<float>(ws.x), static_cast<float>(ws.y)));
     overlay.setFillColor(sf::Color(0, 0, 0, 160));
     window->draw(overlay);
 
+    // Draw vinyl and text on top
     window->draw(vinylSprite);
 
     window->draw(loadingText);

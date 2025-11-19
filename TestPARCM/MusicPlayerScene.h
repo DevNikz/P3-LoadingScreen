@@ -29,7 +29,6 @@ private:
 	sf::RenderWindow* window;
 	bool active = false;
 
-	// Runtime resources
 	sf::Texture albumTexture;
 	sf::Sprite albumSprite;
 	sf::Music albumMusic;
@@ -43,7 +42,6 @@ private:
 	sf::Font font;
 	sf::Text albumText;
 
-	// Threading/loading members
 	std::thread loaderThread;
 	mutable std::mutex pendingMutex;
 	sf::Image pendingAlbumImage;                   
