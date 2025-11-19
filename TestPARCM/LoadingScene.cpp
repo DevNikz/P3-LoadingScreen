@@ -32,13 +32,22 @@ LoadingScene::LoadingScene(sf::RenderWindow* window) : window(window) {
     ellipsisCount = 0;
     angularVelocity = 0.0f;
     draggingVinyl = false;
+
+    if (debugLogEnabled) {
+        std::cerr << "LoadingScene: constructed\n";
+    }
 }
 
 LoadingScene::~LoadingScene() {}
 
 void LoadingScene::start() {
-    if (active) return;
+    if (active) {
+        if (debugLogEnabled) std::cerr << "LoadingScene: start() called but already active\n";
+        return;
+    }
     active = true;
+
+    hasLoggedDrawOnce = false;
 
     sf::Vector2u ws = window->getSize();
     sf::Vector2f center(static_cast<float>(ws.x) / 2.0f, static_cast<float>(ws.y) / 2.0f);
@@ -62,10 +71,17 @@ void LoadingScene::start() {
     ellipsisCount = 0;
     angularVelocity = basePassiveSpin;
     draggingVinyl = false;
+
+    if (debugLogEnabled) {
+        std::cerr << "LoadingScene: start()\n";
+    }
 }
 
 void LoadingScene::stop() {
     active = false;
+    if (debugLogEnabled) {
+        std::cerr << "LoadingScene: stop()\n";
+    }
 }
 
 bool LoadingScene::isActive() const {
@@ -91,6 +107,9 @@ void LoadingScene::handleEvent(const sf::Event& event) {
                 draggingVinyl = true;
                 lastMouseAngleDeg = mouseAngleDeg(center, m);
                 dragClock.restart();
+                if (debugLogEnabled) {
+                    std::cerr << "LoadingScene: draggingVinyl started at (" << m.x << ", " << m.y << ")\n";
+                }
             }
         }
     }
@@ -119,6 +138,9 @@ void LoadingScene::handleEvent(const sf::Event& event) {
     }
     else if (event.type == sf::Event::MouseButtonReleased) {
         if (event.mouseButton.button == sf::Mouse::Left) {
+            if (draggingVinyl && debugLogEnabled) {
+                std::cerr << "LoadingScene: draggingVinyl stopped\n";
+            }
             draggingVinyl = false;
         }
     }
@@ -126,6 +148,12 @@ void LoadingScene::handleEvent(const sf::Event& event) {
 
 void LoadingScene::draw() {
     if (!active) return;
+
+
+    if (debugLogEnabled && !hasLoggedDrawOnce) {
+        std::cerr << "LoadingScene: draw running (active)\n";
+        hasLoggedDrawOnce = true;
+    }
 
     float dt = frameClock.restart().asSeconds();
 

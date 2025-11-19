@@ -26,8 +26,15 @@ int main() {
             if (event.type == sf::Event::Closed) window.close();
         }
 
-        if (!musicPlayerScene.isActive() && playScene.isLoadingRequested()) {
+        if (!loadingScene.isActive() && playScene.isLoadingRequested()) {
             playScene.clearLoadingRequest();
+            loadingScene.start();
+            musicPlayerScene.beginBackgroundLoad();
+        }
+
+        if (loadingScene.isActive() && musicPlayerScene.isReadyToFinalize()) {
+            musicPlayerScene.finalizeLoadedResources();
+            loadingScene.stop();
             musicPlayerScene.start();
         }
 

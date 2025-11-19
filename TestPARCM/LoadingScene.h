@@ -41,6 +41,10 @@ private:
 
     float dampingFactor = 0.995f;
 
+
+    bool debugLogEnabled = true;        
+    bool hasLoggedDrawOnce = false;     
+
     static float toDegrees(float radians) { return radians * 180.0f / 3.14159265358979323846f; }
     static float mouseAngleDeg(const sf::Vector2f& center, const sf::Vector2f& mousePos);
 };
